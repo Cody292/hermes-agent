@@ -256,6 +256,7 @@ import {
   writeSecretFileAtomic
 } from './hardening'
 import { type AttachedBackend, attachOrReserveSpawn, spawnLedgerPath, type SpawnReservation } from './host-backend-attach'
+import { assertNoSecondLocalBackend, assertNotPassiveSpawn } from './host-backend-singleton'
 import { requestHudClose } from './hud-close'
 import { cursorPointInWindow } from './hud-cursor'
 import { startHudGameOverlayWatch } from './hud-game-overlay'
@@ -1667,16 +1668,9 @@ function promotePoolEntry(entry: any): void {
   entry.localBackendSpawnRequest?.promote?.('foreground')
 }
 
-// A passive read (background tile reconcile, #103375) may only be served by a
-// backend that already exists: it never cold-starts a pooled child, never
-// takes a slot, and never refreshes lastActiveAt, so an open-but-unviewed tile
-// cannot keep the pool saturated. Callers treat the rejection as "nothing to
-// refresh yet"; primary-routed profiles are always warm and never reach here.
-function assertNotPassiveSpawn(passive: boolean, poolKey: string): void {
-  if (passive) {
-    throw new Error(`Passive read: no warm backend for "${poolKey}"`)
-  }
-}
+// A passive read may only be served by a backend that already exists; the
+// guard itself lives in host-backend-singleton.ts next to the singleton
+// enforcement point (see assertNoSecondLocalBackend).
 
 // Land a spawn failure in desktop.log. Background slot waits back off per
 // profile under a saturated pool, so a roster refresh cannot create a retry
@@ -4431,12 +4425,14 @@ async function applyUpdates(opts: { stopSafeBlockers?: boolean } = {}) {
         '-RelaunchExe',
         process.execPath
       ]
+
       // Same remote-ownership rule as the posix hand-off (#117529): a
       // remote-served Desktop must not let the update (re)start a local
       // messaging gateway that competes with the remote host's polling.
       if (globalRemoteActive()) {
         wrappedArgs.push('-NoGateway')
       }
+
       const wrapped = wrapHandoffForDetachedConsole(scriptHandoff, wrappedArgs)
 
       child = spawnUpdaterProcess(wrapped.command, wrapped.args, {
@@ -4821,6 +4817,7 @@ async function applyUpdatesPosixHandoff(opts: any) {
   }
 
   const args = [...handoff.args, '--install-root', updateRoot, '--branch', branch, '--desktop-pid', String(process.pid)]
+
   // A remote-served Desktop owns no local messaging gateway: `hermes update
   // --gateway` would (re)start one here anyway, and with the same channel
   // credentials as the remote host it becomes a competing long-poll consumer
@@ -4828,6 +4825,7 @@ async function applyUpdatesPosixHandoff(opts: any) {
   if (globalRemoteActive()) {
     args.push('--no-gateway')
   }
+
   const updateStartedAt = Math.floor(Date.now() / 1000)
 
   // Relaunch target: the running .app bundle on mac (script swaps the
@@ -11411,6 +11409,7 @@ function profileRouteOptions(profile, request?) {
     // A stored per-profile entry (local or remote) — pins this profile to
     // its own backend; absent entries inherit the primary's remote.
     ownEntry: Boolean((config.profiles || {})[key]),
+    isolatedBackend: ISOLATED_BACKEND,
     requestMethod: request?.method,
     requestPath: request?.path
   }
@@ -12539,6 +12538,16 @@ async function runPoolBackendStart(profile, entry, opts: { forceLocal?: boolean;
       ...getWindowState()
     }
   }
+
+  // Everything below starts a LOCAL `hermes serve` child. Multiplex-only says
+  // the host has exactly one, and routing (resolveProfileBackendRoute case 6)
+  // keeps local profiles off this path — this is the backstop that makes the
+  // pool spawn path genuinely unreachable rather than merely unused.
+  assertNoSecondLocalBackend(poolKey, {
+    isolated: ISOLATED_BACKEND,
+    primaryRemoteActive: primaryBackendIsRemote(),
+    profileRemoteOverride: opts.forceLocal ? false : Boolean(profileRemoteOverride(readDesktopConnectionConfig(), profile))
+  })
 
   // Bound the slot wait BELOW the renderer's backend-boot budget (45s): once
   // the renderer has given up on this spawn, a ticket still queued for the
