@@ -1,10 +1,10 @@
 name: hermes-zh
 repo: https://github.com/Cody292/hermes-zh
-sha: 14cc7c9da33d3c78f0ef7eb79f7c8b77b6f484e9
+sha: c424c6e41b48164de5c63b2df83a9a5e0ac6220a
 description: >-
   Official-lifecycle Simplified Chinese localization plugin for Hermes Agent. Provides
   comprehensive UI, approval cards, slash commands, and tips translations without altering core
-  source code. 官方原生生命周期·免改源码 Simplified Chinese 简体中文汉化插件。 Disclosure — Simplified-Chinese overlay
+  source code. 官方原生生命周期·免改源码 Simplified Chinese 简体中文汉化插件(覆盖 102 条指令菜单/审批卡与超时提示/动词汉化/网关状态与上下文面板/380条Tips精翻/系统通知多层拦截/多平台交互弹卡与官方 i18n 协同)。 Disclosure — Simplified-Chinese overlay
   applied at session start by rebinding private core symbols (agent.i18n catalog, tool verbs,
   gateway approval-card/progress text, slash-command descriptions, tips, Telegram adapter methods
   incl. python-telegram-bot CallbackQuery.answer); fail-open, no network, no file writes.
@@ -13,7 +13,7 @@ tier: community
 category: general
 requires_hermes: '>=0.19'
 docs_url: https://github.com/Cody292/hermes-zh
-version: "0.1.1"
+version: "0.1.5"
 platforms: []
 capabilities:
   provides_tools: []
