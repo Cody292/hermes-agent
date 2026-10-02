@@ -1,6 +1,6 @@
 name: hermes-zh
 repo: https://github.com/Cody292/hermes-zh
-sha: c424c6e41b48164de5c63b2df83a9a5e0ac6220a
+sha: 1a0e909fbc8e4eddb54c09fd95ca4e73580eeb2a
 description: >-
   Official-lifecycle Simplified Chinese localization plugin for Hermes Agent. Provides
   comprehensive UI, approval cards, slash commands, and tips translations without altering core
